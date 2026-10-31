@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ playlist.title }} | YouTube</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #383838;
+            border-radius: 9999px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #555555;
+        }
+    </style>
+</head>
+<body class="bg-[#0f0f0f] text-white font-sans antialiased overflow-x-hidden selection:bg-[#3ea6ff] selection:text-black">
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-6 right-6 z-50 bg-[#212121] text-white px-5 py-3 rounded-2xl border border-[#383838] shadow-2xl flex items-center gap-3 translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+        <i class="fa-solid fa-circle-check text-[#3ea6ff]"></i>
+        <span id="toast-text" class="text-sm font-medium">Ссылка скопирована</span>
+    </div>
+
+    <!-- Header -->
+    <header class="fixed top-0 left-0 right-0 h-14 bg-[#0f0f0f] px-4 flex items-center justify-between z-50 border-b border-[#272727]">
+        <div class="flex items-center space-x-4">
+            <button class="p-2 hover:bg-[#272727] rounded-full cursor-pointer text-xl">
+                <i class="fa-solid fa-bars"></i>
+            </button>
+            <a href="{% url 'home' %}" class="flex items-center gap-1">
+                <div class="bg-red-600 text-white px-2.5 py-1 rounded-xl flex items-center justify-center font-bold tracking-tighter text-sm">
+                    <i class="fa-solid fa-play text-xs"></i>
+                </div>
+                <span class="font-bold text-xl tracking-tighter font-mono">YouTube</span>
+            </a>
+        </div>
+
+        <form method='get' action="{% url 'home' %}" class="flex items-center flex-1 max-w-2xl mx-4 justify-center">
+            <div class="flex w-full">
+                <div class="flex items-center w-full bg-[#121212] border border-[#303030] rounded-l-full px-4 focus-within:border-blue-500">
+                    <input type="text" name='search' placeholder="Введите запрос" class="w-full bg-transparent py-2 outline-none text-sm placeholder-[#aaa]">
+                </div>
+                <button type='submit' class="bg-[#222222] border border-l-0 border-[#303030] px-6 rounded-r-full flex items-center justify-center hover:bg-[#272727] cursor-pointer">
+                    <i class="fa-solid fa-magnifying-glass text-sm"></i>
+                </button>
+            </div>
+        </form>
+
+        <div class="flex items-center space-x-3">
+            <a href="{% url 'create_video' %}" class="flex items-center space-x-2 bg-[#3ea6ff] text-black px-3.5 py-1.5 rounded-full text-sm font-semibold hover:bg-[#65b8ff] transition">
+                <i class="fa-solid fa-plus"></i>
+                <span>Create</span>
+            </a>
+            <button class="p-2.5 hover:bg-[#272727] rounded-full cursor-pointer relative">
+                <i class="fa-regular fa-bell text-lg"></i>
+            </button>
+            {% if request.user.is_authenticated and request.user.channel.avatar %}
+            <a href="{% url 'my_channel' %}" class="w-8 h-8 rounded-full overflow-hidden bg-gray-700">
+                <img src="{{ request.user.channel.avatar.url }}" alt="Avatar" class="w-full h-full object-cover">
+            </a>
+            {% elif request.user.is_authenticated %}
+            <a href="{% url 'my_channel' %}" class="w-8 h-8 rounded-full overflow-hidden bg-purple-600 flex items-center justify-center font-bold text-sm">
+                {{ user.username.0.title }}
+            </a>
+            {% else %}
+            <a href="{% url 'login' %}" class="w-fit h-8 p-[7px_14px] rounded-full overflow-hidden bg-purple-600 flex items-center justify-center font-bold text-sm">
+                Login
+            </a>
+            {% endif %}
+        </div>
+    </header>
+
+    <div class="flex pt-14 min-h-screen">
+        
+        <!-- Sidebar -->
+        <aside class="w-64 fixed left-0 top-14 bottom-0 bg-[#0f0f0f] px-3 py-3 overflow-y-auto hidden md:flex flex-col space-y-4 text-sm scrollbar-thin z-40 border-r border-[#272727]">
+            <div class="flex flex-col space-y-1 border-b border-[#3f3f3f] pb-3">
+                <a href="{% url 'home' %}" class="flex items-center space-x-6 px-3 py-2.5 rounded-xl hover:bg-[#272727]">
+                    <i class="fa-solid fa-house text-lg w-6"></i>
+                    <span>Home</span>
+                </a>
+                <a href="#" class="flex items-center space-x-6 px-3 py-2.5 rounded-xl hover:bg-[#272727]">
+                    <i class="fa-solid fa-bolt text-lg w-6"></i>
+                    <span>Shorts</span>
+                </a>
+            </div>
+
+            {% if request.user.is_authenticated %}
+            <div class="flex flex-col space-y-1 border-b border-[#3f3f3f] pb-3">
+                <h3 class="px-3 text-xs font-semibold text-[#aaa] uppercase tracking-wider mb-1">Subscriptions</h3>
+                {% if request.user.followed_channels %}
+                    {% for item in request.user.followed_channels.all %}
+                    <a href="{% url 'channel_info' item.channel.id %}" class="flex items-center space-x-4 px-3 py-2 rounded-xl hover:bg-[#272727]">
+                        {% if item.channel.avatar %}
+                            <img src="{{ item.channel.avatar.url }}" alt="{{ item.title }}" class="w-6 h-6 rounded-full object-cover">
+                        {% else %}
+                            <div class="w-6 h-6 rounded-full bg-gray-600 flex items-center justify-center text-xs">C</div>
+                        {% endif %}
+                        <span class="truncate">{{ item.channel.title }}</span>
+                    </a>
+                    {% endfor %}
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <div class="flex flex-col space-y-1 border-b border-[#3f3f3f] pb-3">
+                <a href="#" class="flex items-center space-x-3 px-3 py-2 rounded-xl font-semibold hover:bg-[#272727]">
+                    <span>You</span>
+                    <i class="fa-solid fa-chevron-right text-xs"></i>
+                </a>
+                <a href="{% url 'my_channel' %}" class="flex items-center space-x-6 px-3 py-2.5 rounded-xl hover:bg-[#272727]">
+                    <i class="fa-solid fa-user-shield text-lg w-6"></i>
+                    <span>Your channel</span>
+                </a>
+                <a href="{% url 'history' %}" class="flex items-center space-x-6 px-3 py-2.5 rounded-xl hover:bg-[#272727]">
+                    <i class="fa-solid fa-clock-rotate-left text-lg w-6"></i>
+                    <span>History</span>
+                </a>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 md:ml-64 p-4 lg:p-8">
+            <div class="max-w-7xl mx-auto flex flex-col lg:flex-row gap-8 items-start">
+
+                <!-- Left Column: Playlist Card Info -->
+                <div class="w-full lg:w-96 shrink-0 lg:sticky lg:top-20">
+                    <div class="relative overflow-hidden rounded-3xl bg-gradient-to-b from-[#2a2a2a]/70 to-[#141414] border border-[#2e2e2e] p-6 shadow-2xl backdrop-blur-md">
+                        
+                        <!-- Thumbnail Preview -->
+                        <div class="relative w-full aspect-video rounded-2xl overflow-hidden shadow-lg group bg-[#111] mb-5 border border-white/5">
+                            {% with first_item=playlist.playlist_videos.first %}
+                                {% if first_item %}
+                                    {% if first_item.video.preview %}
+                                        <img src="{{ first_item.video.preview.url }}" alt="{{ playlist.title }}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+                                    {% elif first_item.video.file %}
+                                        <video src="{{ first_item.video.file.url }}#t=0.5" preload="metadata" class="w-full h-full object-cover group-hover:scale-105 transition duration-300"></video>
+                                    {% else %}
+                                        <div class="w-full h-full flex items-center justify-center bg-zinc-900 text-zinc-600">
+                                            <i class="fa-solid fa-film text-5xl"></i>
+                                        </div>
+                                    {% endif %}
+
+                                    <a href="{% url 'video_detail' first_item.video.id %}?playlist={{ playlist.id }}&index=0" class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition duration-200">
+                                        <span class="flex items-center gap-2 bg-black/75 backdrop-blur-sm px-4 py-2 rounded-full text-xs font-semibold tracking-wide">
+                                            <i class="fa-solid fa-play text-[10px]"></i> Воспроизвести все
+                                        </span>
+                                    </a>
+                                {% else %}
+                                    <div class="w-full h-full flex flex-col items-center justify-center bg-zinc-900 text-zinc-600">
+                                        <i class="fa-solid fa-list-ul text-4xl mb-2"></i>
+                                        <span class="text-xs">Нет видео</span>
+                                    </div>
+                                {% endif %}
+                            {% endwith %}
+                        </div>
+
+                        <!-- Playlist Meta -->
+                        <h1 class="text-2xl font-extrabold tracking-tight text-white mb-2 line-clamp-2">
+                            {{ playlist.title }}
+                        </h1>
+
+                        <div class="space-y-1 mb-6">
+                            <a href="{% if playlist.channel %}{% url 'my_channel' %}{% else %}#{% endif %}" class="text-sm font-semibold hover:underline block truncate text-zinc-200">
+                                {{ playlist.channel.title|default:request.user.username }}
+                            </a>
+                            <div class="flex items-center gap-2 text-xs text-[#aaa]">
+                                <span>Плейлист</span>
+                                <span>•</span>
+                                <span>{{ playlist.playlist_videos.count }} медиа</span>
+                                <span>•</span>
+                                <span>{{ playlist.created_at|date:"Y"|default:"Недавно" }}</span>
+                            </div>
+                        </div>
+
+                        <!-- Action Controls -->
+                        <div class="flex items-center gap-3 mb-4">
+                            {% if playlist.playlist_videos.first %}
+                            <a href="{% url 'video_detail' playlist.playlist_videos.first.video.id %}?playlist={{ playlist.id }}&index=0" class="flex-1 bg-white hover:bg-zinc-200 text-black font-semibold py-2.5 px-4 rounded-full flex items-center justify-center gap-2 text-sm transition active:scale-[0.98]">
+                                <i class="fa-solid fa-play text-xs"></i>
+                                <span>Смотреть все</span>
+                            </a>
+                            {% else %}
+                            <button disabled class="flex-1 bg-zinc-800 text-zinc-500 font-semibold py-2.5 px-4 rounded-full flex items-center justify-center gap-2 text-sm cursor-not-allowed">
+                                <i class="fa-solid fa-play text-xs"></i>
+                                <span>Смотреть все</span>
+                            </button>
+                            {% endif %}
+
+                            <!-- Shuffle Button -->
+                            <button id="shuffle-btn" title="Перемешать" class="p-3 bg-white/10 hover:bg-white/20 rounded-full text-white transition cursor-pointer flex items-center justify-center">
+                                <i class="fa-solid fa-shuffle text-sm"></i>
+                            </button>
+
+                            <!-- Share Button -->
+                            <button id="share-btn" title="Поделиться" class="p-3 bg-white/10 hover:bg-white/20 rounded-full text-white transition cursor-pointer flex items-center justify-center">
+                                <i class="fa-solid fa-share-nodes text-sm"></i>
+                            </button>
+                        </div>
+
+                        <!-- Owner Tools -->
+                        {% if request.user.id == playlist.channel.user.id or request.user == playlist.user %}
+                        <div class="pt-4 border-t border-white/10 flex items-center justify-between">
+                            <span class="text-xs text-zinc-400 font-medium">Управление</span>
+                            <div class="flex gap-2">
+                                <a href="{% url 'update_playlist' playlist.id %}" class="p-2 hover:bg-[#303030] rounded-full text-zinc-400 hover:text-white transition" title="Редактировать название">
+                                    <i class="fa-solid fa-pen text-xs"></i>
+                                </a>
+                                <button onclick="toggleDeleteModal(true)" class="p-2 hover:bg-red-500/20 rounded-full text-zinc-400 hover:text-red-400 transition cursor-pointer" title="Удалить плейлист">
+                                    <i class="fa-solid fa-trash text-xs"></i>
+                                </button>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                    </div>
+                </div>
+
+                <!-- Right Column: Videos & Shorts Content Area -->
+                <div class="flex-1 w-full space-y-6">
+
+                    <!-- Filter Tabs: Все / Видео / Shorts -->
+                    <div class="flex items-center gap-2 pb-2 border-b border-[#2a2a2a] overflow-x-auto scrollbar-none">
+                        <button onclick="switchTab('all')" id="tab-btn-all" class="filter-tab px-4 py-1.5 rounded-xl text-xs font-semibold bg-white text-black transition cursor-pointer">
+                            Все
+                        </button>
+                        <button onclick="switchTab('videos')" id="tab-btn-videos" class="filter-tab px-4 py-1.5 rounded-xl text-xs font-medium bg-[#222] hover:bg-[#2e2e2e] text-zinc-300 transition cursor-pointer flex items-center gap-1.5">
+                            <i class="fa-solid fa-film text-[11px]"></i>
+                            <span>Видео</span>
+                        </button>
+                        <button onclick="switchTab('shorts')" id="tab-btn-shorts" class="filter-tab px-4 py-1.5 rounded-xl text-xs font-medium bg-[#222] hover:bg-[#2e2e2e] text-zinc-300 transition cursor-pointer flex items-center gap-1.5">
+                            <i class="fa-solid fa-bolt text-red-500 text-[11px]"></i>
+                            <span>Shorts</span>
+                        </button>
+                    </div>
+
+                    {% if playlist.playlist_videos.all %}
+
+                        <!-- Section 1: Regular Videos -->
+                        <div id="section-videos" class="space-y-2">
+                            <h2 class="text-sm font-semibold text-zinc-400 px-1 mb-2 flex items-center gap-2">
+                                <i class="fa-solid fa-video text-xs text-[#3ea6ff]"></i>
+                                <span>Видео</span>
+                            </h2>
+
+                            {% for item in playlist.playlist_videos.all %}
+                                {% if item.video.type != 'shorts' and not item.video.is_short %}
+                                <div class="video-row group relative flex items-center gap-3 p-2.5 rounded-2xl hover:bg-[#1f1f1f] border border-transparent hover:border-[#2a2a2a] transition duration-150">
+                                    
+                                    <div class="w-6 text-center text-xs text-[#888] font-mono group-hover:hidden">
+                                        {{ forloop.counter }}
+                                    </div>
+                                    <div class="w-6 text-center text-[#aaa] hidden group-hover:block cursor-grab">
+                                        <i class="fa-solid fa-grip-vertical text-xs"></i>
+                                    </div>
+
+                                    <!-- Video Preview (16:9) -->
+                                    <a href="{% url 'video_detail' item.video.id %}" class="relative w-36 sm:w-44 aspect-video rounded-xl overflow-hidden bg-zinc-900 shrink-0">
+                                        {% if item.video.preview %}
+                                            <img src="{{ item.video.preview.url }}" alt="{{ item.video.title }}" class="w-full h-full object-cover">
+                                        {% elif item.video.file %}
+                                            <video src="{{ item.video.file.url }}#t=0.5" preload="metadata" class="w-full h-full object-cover pointer-events-none"></video>
+                                        {% else %}
+                                            <div class="w-full h-full flex items-center justify-center bg-zinc-800 text-zinc-600">
+                                                <i class="fa-solid fa-play text-sm"></i>
+                                            </div>
+                                        {% endif %}
+
+                                        {% if item.video.duration %}
+                                            <span class="absolute bottom-1.5 right-1.5 bg-black/80 backdrop-blur-xs text-[10px] px-1.5 py-0.5 rounded font-medium text-white tracking-wider">
+                                                {{ item.video.duration }}
+                                            </span>
+                                        {% endif %}
+                                    </a>
+
+                                    <div class="flex-1 min-w-0 pr-2">
+                                        <a href="{% url 'video_detail' item.video.id %}" class="text-sm font-semibold text-white line-clamp-2 hover:underline">
+                                            {{ item.video.title }}
+                                        </a>
+                                        <div class="flex flex-wrap items-center gap-1.5 text-xs text-[#aaa] mt-1.5">
+                                            <span class="hover:text-white transition">{{ item.video.channel.title }}</span>
+                                            <span>•</span>
+                                            <span>{{ item.video.video_watchs.count|default:0 }} просмотров</span>
+                                            <span>•</span>
+                                            <span>{{ item.created_at|timesince }} назад</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="relative shrink-0">
+                                        <button onclick="toggleVideoMenu(event, 'menu-{{ item.id }}')" class="p-2.5 opacity-0 group-hover:opacity-100 hover:bg-[#303030] rounded-full text-[#aaa] hover:text-white cursor-pointer transition">
+                                            <i class="fa-solid fa-ellipsis-vertical"></i>
+                                        </button>
+
+                                        <div id="menu-{{ item.id }}" class="video-menu hidden absolute right-0 top-10 w-52 bg-[#282828] border border-[#383838] rounded-2xl shadow-2xl py-1.5 z-30">
+                                            {% if request.user.id == playlist.channel.user.id or request.user == playlist.user %}
+                                                <a href="{% url 'remove_from_playlist' item.id %}" class="w-full px-4 py-2 text-left text-xs text-red-400 hover:bg-[#383838] flex items-center gap-3">
+                                                    <i class="fa-solid fa-trash-can text-sm"></i>
+                                                    <span>Удалить из плейлиста</span>
+                                                </a>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+
+                                </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+
+                        <!-- Section 2: Shorts Grid (Vertical 9:16) -->
+                        <div id="section-shorts" class="space-y-3 pt-4 border-t border-[#272727]">
+                            <div class="flex items-center justify-between px-1">
+                                <h2 class="text-sm font-semibold text-zinc-400 flex items-center gap-2">
+                                    <i class="fa-solid fa-bolt text-red-500 text-xs"></i>
+                                    <span>Shorts</span>
+                                </h2>
+                            </div>
+
+                            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3.5">
+                                {% for item in playlist.playlist_videos.all %}
+                                    {% if item.video.type == 'shorts' or item.video.is_short %}
+                                    <div class="shorts-card group relative flex flex-col rounded-2xl overflow-hidden hover:bg-[#1a1a1a] transition p-1.5">
+                                        
+                                        <a href="{% url 'shorts_detail' item.video.id %}" class="relative w-full aspect-[9/16] rounded-xl overflow-hidden bg-zinc-900 border border-white/5">
+                                            {% if item.video.preview %}
+                                                <img src="{{ item.video.preview.url }}" alt="{{ item.video.title }}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+                                            {% elif item.video.file %}
+                                                <video src="{{ item.video.file.url }}#t=0.5" preload="metadata" class="w-full h-full object-cover pointer-events-none group-hover:scale-105 transition duration-300"></video>
+                                            {% else %}
+                                                <div class="w-full h-full flex items-center justify-center bg-zinc-900 text-zinc-600">
+                                                    <i class="fa-solid fa-bolt text-2xl"></i>
+                                                </div>
+                                            {% endif %}
+
+                                            <div class="absolute top-2 left-2 bg-black/60 backdrop-blur-xs text-red-500 px-2 py-0.5 rounded-md text-[10px] font-bold tracking-wider flex items-center gap-1">
+                                                <i class="fa-solid fa-bolt"></i>
+                                                <span>SHORTS</span>
+                                            </div>
+
+                                            <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition duration-200 flex items-end p-2.5">
+                                                <span class="text-[11px] text-zinc-300 flex items-center gap-1">
+                                                    <i class="fa-solid fa-play text-[9px]"></i> {{ item.video.video_watchs.count|default:0 }}
+                                                </span>
+                                            </div>
+                                        </a>
+
+                                        <div class="mt-2 flex items-start justify-between gap-1.5 px-1">
+                                            <div class="flex-1 min-w-0">
+                                                <a href="{% url 'shorts_detail' item.video.id %}" class="text-xs font-semibold text-white line-clamp-2 hover:underline leading-snug">
+                                                    {{ item.video.title }}
+                                                </a>
+                                                <span class="text-[11px] text-[#aaa] mt-1 block truncate">
+                                                    {{ item.video.video_watchs.count|default:0 }} просмотров
+                                                </span>
+                                            </div>
+
+                                            {% if request.user.id == playlist.channel.user.id or request.user == playlist.user %}
+                                            <div class="relative shrink-0">
+                                                <button onclick="toggleVideoMenu(event, 'menu-short-{{ item.id }}')" class="p-1 hover:bg-[#303030] rounded-full text-[#aaa] hover:text-white cursor-pointer transition">
+                                                    <i class="fa-solid fa-ellipsis-vertical text-xs"></i>
+                                                </button>
+                                                <div id="menu-short-{{ item.id }}" class="video-menu hidden absolute right-0 bottom-6 w-48 bg-[#282828] border border-[#383838] rounded-xl shadow-2xl py-1 z-30">
+                                                    <a href="{% url 'remove_from_playlist' item.id %}" class="w-full px-3 py-1.5 text-left text-xs text-red-400 hover:bg-[#383838] flex items-center gap-2">
+                                                        <i class="fa-solid fa-trash-can text-xs"></i>
+                                                        <span>Удалить</span>
+                                                    </a>
+                                                </div>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+
+                                    </div>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                    {% else %}
+                        <div class="flex flex-col items-center justify-center py-24 text-center rounded-3xl border border-dashed border-[#2a2a2a] bg-[#141414]">
+                            <div class="w-16 h-16 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-500 mb-4">
+                                <i class="fa-solid fa-folder-open text-2xl"></i>
+                            </div>
+                            <h3 class="text-base font-semibold text-white mb-1">В этом плейлисте пока нет видео</h3>
+                            <p class="text-xs text-[#aaa] max-w-sm mb-6">Добавляйте видеоролики и Shorts через кнопку "Сохранить", чтобы просматривать их здесь</p>
+                            <a href="{% url 'home' %}" class="bg-[#3ea6ff] hover:bg-[#65b8ff] text-black font-semibold text-xs px-5 py-2.5 rounded-full transition">
+                                Перейти к видео
+                            </a>
+                        </div>
+                    {% endif %}
+
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="delete-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-[#212121] border border-[#303030] rounded-3xl max-w-sm w-full p-6 shadow-2xl">
+            <h3 class="text-lg font-bold text-white mb-2">Удалить плейлист?</h3>
+            <p class="text-xs text-[#aaa] mb-6">Плейлист «{{ playlist.title }}» будет безвозвратно удален. Сами видео останутся на каналах.</p>
+            <div class="flex justify-end gap-3">
+                <button onclick="toggleDeleteModal(false)" class="px-5 py-2 rounded-full hover:bg-[#303030] text-xs font-semibold">Отмена</button>
+                <form method="post" action="{% url 'delete_playlist' playlist.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded-full text-xs font-semibold transition">Удалить</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Копирование ссылки в буфер + тост
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            const toastText = document.getElementById('toast-text');
+            toastText.textContent = message;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 2500);
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showToast('Ссылка скопирована в буфер обмена');
+            }).catch(() => {
+                showToast('Не удалось скопировать ссылку');
+            });
+        }
+
+        document.getElementById('share-btn')?.addEventListener('click', () => {
+            copyToClipboard(window.location.href);
+        });
+
+        // Случайный запуск (Shuffle)
+        const totalVideos = {{ playlist.playlist_videos.count|default:0 }};
+        document.getElementById('shuffle-btn')?.addEventListener('click', () => {
+            if (totalVideos > 0) {
+                const randomIndex = Math.floor(Math.random() * totalVideos);
+                {% if playlist.playlist_videos.first %}
+                window.location.href = "{% url 'video_detail' playlist.playlist_videos.first.video.id %}?playlist={{ playlist.id }}&index=" + randomIndex;
+                {% endif %}
+            }
+        });
+
+        function toggleDeleteModal(show) {
+            const modal = document.getElementById('delete-modal');
+            if (show) {
+                modal.classList.remove('hidden');
+            } else {
+                modal.classList.add('hidden');
+            }
+        }
+
+        function toggleVideoMenu(e, menuId) {
+            e.stopPropagation();
+            const currentMenu = document.getElementById(menuId);
+            document.querySelectorAll('.video-menu').forEach(m => {
+                if (m !== currentMenu) m.classList.add('hidden');
+            });
+            currentMenu?.classList.toggle('hidden');
+        }
+
+        window.addEventListener('click', () => {
+            document.querySelectorAll('.video-menu').forEach(m => m.classList.add('hidden'));
+        });
+
+        // Переключение фильтра табов (Все / Видео / Shorts)
+        function switchTab(type) {
+            const secVideos = document.getElementById('section-videos');
+            const secShorts = document.getElementById('section-shorts');
+            
+            const btnAll = document.getElementById('tab-btn-all');
+            const btnVideos = document.getElementById('tab-btn-videos');
+            const btnShorts = document.getElementById('tab-btn-shorts');
+
+            const allButtons = [btnAll, btnVideos, btnShorts];
+            allButtons.forEach(btn => {
+                btn.className = 'filter-tab px-4 py-1.5 rounded-xl text-xs font-medium bg-[#222] hover:bg-[#2e2e2e] text-zinc-300 transition cursor-pointer flex items-center gap-1.5';
+            });
+
+            const activeBtn = type === 'all' ? btnAll : (type === 'videos' ? btnVideos : btnShorts);
+            activeBtn.className = 'filter-tab px-4 py-1.5 rounded-xl text-xs font-semibold bg-white text-black transition cursor-pointer flex items-center gap-1.5';
+
+            if (type === 'all') {
+                secVideos?.classList.remove('hidden');
+                secShorts?.classList.remove('hidden');
+            } else if (type === 'videos') {
+                secVideos?.classList.remove('hidden');
+                secShorts?.classList.add('hidden');
+            } else if (type === 'shorts') {
+                secVideos?.classList.add('hidden');
+                secShorts?.classList.remove('hidden');
+            }
+        }
+    </script>
+</body>
+</html>
